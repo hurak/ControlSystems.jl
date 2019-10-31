@@ -76,18 +76,10 @@ function getLogTicks(x, minmax)
     min               = ceil(log10(minx))
     max               = floor(log10(maxx))
     major             = 10 .^ (min:max)
-    if Plots.backend() != Plots.GRBackend()
-        majorText = [latexstring("\$10^{$(round(Int64,i))}\$") for i = min:max]
-    else
-        majorText = ["10^{$(round(Int64,i))}" for i = min:max]
-    end
+    majorText = [latexstring("\$10^{$(round(Int64,i))}\$") for i = min:max]
     if max - min < major_minor_limit
         minor     = [j*10^i for i = (min-1):(max+1) for j = 2:9]
-        if Plots.backend() != Plots.GRBackend()
-            minorText = [latexstring("\$$j\\cdot10^{$(round(Int64,i))}\$") for i = (min-1):(max+1) for j = 2:9]
-        else
-            minorText = ["$j*10^{$(round(Int64,i))}" for i = (min-1):(max+1) for j = 2:9]
-        end
+        minorText = [latexstring("\$$j\\cdot10^{$(round(Int64,i))}\$") for i = (min-1):(max+1) for j = 2:9]
 
         ind       = findall(minx .<= minor .<= maxx)
         minor     = minor[ind]
@@ -672,17 +664,17 @@ function marginplot(systems::Union{AbstractVector{T},T}, args...; kwargs...) whe
                 end
                 for k=1:length(wgm)
                     #Plot gain margins
-                    Plots.plot!(fig, [wgm[k];wgm[k]], [1;mag[k]], lab="", subplot=s2i(2i-1,j); getStyleSys(si,length(systems))...)
+                    RecipesBase.plot!(fig, [wgm[k];wgm[k]], [1;mag[k]], lab="", subplot=s2i(2i-1,j); getStyleSys(si,length(systems))...)
                 end
                 #Plot gain line at 1
-                Plots.plot!(fig, [w[1],w[end]], [oneLine,oneLine], l=:dash, c=:gray, lab="", subplot=s2i(2i-1,j))
+                RecipesBase.plot!(fig, [w[1],w[end]], [oneLine,oneLine], l=:dash, c=:gray, lab="", subplot=s2i(2i-1,j))
                 titles[j,i,1,1] *= "["*join([Printf.@sprintf("%2.2f",v) for v in gm],", ")*"] "
                 titles[j,i,1,2] *= "["*join([Printf.@sprintf("%2.2f",v) for v in wgm],", ")*"] "
                 for k=1:length(wpm)
                     #Plot the phase margins
-                    Plots.plot!(fig, [wpm[k];wpm[k]],[fullPhase[k];fullPhase[k]-pm[k]], lab="", subplot=s2i(2i,j); getStyleSys(si,length(systems))...)
+                    RecipesBase.plot!(fig, [wpm[k];wpm[k]],[fullPhase[k];fullPhase[k]-pm[k]], lab="", subplot=s2i(2i,j); getStyleSys(si,length(systems))...)
                     #Plot the line at 360*k
-                    Plots.plot!(fig, [w[1],w[end]],(fullPhase[k]-pm[k])*ones(2), l=:dash, c=:gray, lab="", subplot=s2i(2i,j))
+                    RecipesBase.plot!(fig, [w[1],w[end]],(fullPhase[k]-pm[k])*ones(2), l=:dash, c=:gray, lab="", subplot=s2i(2i,j))
                 end
                 titles[j,i,2,1] *=  "["*join([Printf.@sprintf("%2.2f",v) for v in pm],", ")*"] "
                 titles[j,i,2,2] *=  "["*join([Printf.@sprintf("%2.2f",v) for v in wpm],", ")*"] "
@@ -691,8 +683,8 @@ function marginplot(systems::Union{AbstractVector{T},T}, args...; kwargs...) whe
     end
     for j = 1:nu
         for i = 1:ny
-            Plots.title!(fig, titles[j,i,1,1]*" "*titles[j,i,1,2], subplot=s2i(2i-1,j))
-            Plots.title!(fig, titles[j,i,2,1]*" "*titles[j,i,2,2], subplot=s2i(2i,j))
+            RecipesBase.plot!(fig, title=titles[j,i,1,1]*" "*titles[j,i,1,2], subplot=s2i(2i-1,j))
+            RecipesBase.plot!(fig, title=titles[j,i,2,1]*" "*titles[j,i,2,2], subplot=s2i(2i,j))
         end
     end
     return fig
@@ -775,7 +767,7 @@ function gangoffourplot(P::Union{Vector, LTISystem}, C::Vector, args...; plotpha
     # Empty titles on phase
     titleIdx = plotphase ? [1,2,5,6] : [1,2,3,4]
     titles[titleIdx] = ["S = 1/(1+PC)", "D = P/(1+PC)", "N = C/(1+PC)", "T = PC/(1+PC)"]
-    Plots.plot!(fig, title = titles)
+    RecipesBase.plot!(fig, title = titles)
     return fig
 end
 
