@@ -1,6 +1,6 @@
 # Length not defined for StateSpace, so use custom function
 function Test.test_approx_eq(va::StateSpace, vb::StateSpace, Eps, astr, bstr)
-    fields = [:Ts, :nx, :ny, :nu, :inputnames, :outputnames, :statenames]
+    fields = [:timeevol, :nx, :ny, :nu, :inputnames, :outputnames, :statenames]
     for field in fields
         if getfield(va, field) != getfield(vb, field)
             return false
@@ -33,10 +33,13 @@ Test.test_approx_eq(a::TransferFunction, b::TransferFunction, astr, bstr) = (a �
 
 
 function run_tests(my_tests)
-    @testset "All tests" begin
+    @testset "Test Code" begin
         for test in my_tests
             println(test)
+            _t0 = time()
             include("$(test).jl")
+            _t1 = time()
+            println("Ran $test in $(round(_t1-_t0, digits=2)) seconds")
         end
     end
 end
@@ -67,20 +70,16 @@ macro test_array_vecs_eps(a, b, tol)
     end
 end
 
-macro test_c2d(ex, sys_sol, mat_sol, op)
-    if op == true
-        quote
-            sys, mat = $(esc(ex))
-            @test sys ≈ $(esc(sys_sol)) && mat ≈ $(esc(mat_sol))
-        end
-    else
-        quote
-            sys, mat = $(esc(ex))
-            @test !(sys ≈ $(esc(sys_sol))) || !(mat ≈ $(esc(mat_sol)))
-        end
+# Currently only works for two return values
+macro test_tupleapprox(ex, y1true, y2true)
+    quote
+        y1, y2 = $(esc(ex))
+        @test y1 ≈ $(esc(y1true)) && y2 ≈ $(esc(y2true))
     end
 end
 
 
 approxin(el,col;kwargs...) = any(colel -> isapprox(el, colel; kwargs...), col)
 approxsetequal(s1,s2;kwargs...) = all(approxin(p,s1;kwargs...) for p in s2) && all(approxin(p,s2;kwargs...) for p in s1)
+
+dropwhitespace(str) = filter(!isspace, str)

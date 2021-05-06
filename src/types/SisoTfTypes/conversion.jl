@@ -9,8 +9,9 @@ function Base.convert(::Type{SisoZpk{T,TR}}, f::SisoRational{T2}) where {T<:Numb
 end
 
 function Base.convert(::Type{<:SisoZpk}, f::SisoRational{T}) where {T<:Number}
-    TR = complex(Base.promote_op(/, T, T)) # Type of roots(f.z)
-    Base.convert(SisoZpk{T,TR}, f)
+    T1 = Base.promote_op(/, T, T)
+    TR = complex(T1) # Type of roots(f.z)
+    Base.convert(SisoZpk{T1,TR}, f)
 end
 
 
@@ -20,7 +21,7 @@ end
 
 
 function Base.convert(::Type{SisoRational{T}}, f::SisoRational) where {T<:Number}
-    return SisoRational{T}(convert(Poly{T}, f.num), convert(Poly{T}, f.den))
+    return SisoRational{T}(convert(Polynomial{T}, f.num), convert(Polynomial{T}, f.den))
 end
 
 function Base.convert(::Type{SisoRational{T1}}, f::SisoZpk{T2,TR}) where {T1<:Number, T2<:Number,TR<:Number}

@@ -1,14 +1,14 @@
 # Base.convert(::Type{<:SisoTf}, b::Real) = Base.convert(SisoRational, b)
 # Base.convert{T<:Real}(::Type{<:SisoZpk}, b::T) = SisoZpk(T[], T[], b)
 # Base.convert{T<:Real}(::Type{<:SisoRational}, b::T) = SisoRational([b], [one(T)])
-# Base.convert{T1}(::Type{SisoRational{Vector{T1}}}, t::SisoRational) =  SisoRational(Poly(T1.(t.num.a)),Poly(T1.(t.den.a)))
+# Base.convert{T1}(::Type{SisoRational{Vector{T1}}}, t::SisoRational) =  SisoRational(Polynomial(T1.(t.num.coeffs$1),Polynomial(T1.(t.den.coeffs$1))
 # Base.convert(::Type{<:StateSpace}, t::Real) = ss(t)
 #
 
 #
 # function Base.convert{T<:AbstractMatrix{<:Number}}(::Type{StateSpace{T}}, s::StateSpace)
 #     AT = promote_type(T, arraytype(s))
-#     StateSpace{AT}(AT(s.A),AT(s.B),AT(s.C),AT(s.D), s.Ts, s.statenames, s.inputnames, s.outputnames)
+#     StateSpace{AT}(AT(s.A),AT(s.B),AT(s.C),AT(s.D), s.timeevol, s.statenames, s.inputnames, s.outputnames)
 # end
 
 # TODO Fix these to use proper constructors
@@ -18,28 +18,35 @@
 # Base.convert(::Type{<:TransferFunction}, b::Number) = tf([b])
 # Base.convert(::Type{<:TransferFunction{<:SisoRational}}, b::Number) = tf(b)
 # Base.convert(::Type{<:TransferFunction{<:SisoZpk}}, b::Number) = zpk(b)
+#
+Base.convert(::Type{TransferFunction{TE,SisoZpk{T1, TR1}}}, D::AbstractMatrix{T2}) where {TE, T1, TR1, T2<:Number} =
+    zpk(convert(Matrix{T1}, D), undef_sampletime(TE))
+Base.convert(::Type{TransferFunction{TE,SisoRational{T1}}}, D::AbstractMatrix{T2}) where {TE, T1, T2<:Number} =
+    tf(Matrix{T1}(D), undef_sampletime(TE))
 
-Base.convert(::Type{<:TransferFunction{<:SisoZpk{T1, TR1}}}, b::AbstractMatrix{T2}) where {T1, TR1, T2<:Number} = zpk(T1.(b))
-Base.convert(::Type{<:TransferFunction{<:SisoRational{T1}}}, b::AbstractMatrix{T2}) where {T1, T2<:Number} = tf(T1.(b))
-function convert(::Type{StateSpace{T,MT}}, D::AbstractMatrix{<:Number}) where {T, MT}
+function convert(::Type{StateSpace{TE,T}}, D::AbstractMatrix{<:Number}) where {TE,T}
     (ny, nu) = size(D)
-    A = MT(fill(zero(T), (0,0)))
-    B = MT(fill(zero(T), (0,nu)))
-    C = MT(fill(zero(T), (ny,0)))
-    D = convert(MT, D)
-    Ts = 0.0
-    return StateSpace{T,MT}(A,B,C,D,Ts)
+    A = fill(zero(T), (0,0))
+    B = fill(zero(T), (0,nu))
+    C = fill(zero(T), (ny,0))
+    D = convert(Matrix{T}, D)
+    return StateSpace{TE,T}(A,B,C,D,undef_sampletime(TE))
 end
 
-Base.convert(::Type{<:TransferFunction{<:SisoRational{T}}}, b::Number) where {T} = tf(T(b))
-Base.convert(::Type{<:TransferFunction{<:SisoZpk{T, TR}}}, b::Number) where {T, TR} = zpk(T(b))
-Base.convert(::Type{StateSpace{T, MT}}, b::Number) where {T, MT} = convert(StateSpace{T, MT}, fill(b, (1,1)))
+# TODO We still dont have TransferFunction{..}(number/array) constructors
+Base.convert(::Type{TransferFunction{TE,SisoRational{T}}}, d::Number) where {TE, T} =
+    tf(T(d), undef_sampletime(TE))
 
+Base.convert(::Type{TransferFunction{TE,SisoZpk{T,TR}}}, d::Number) where {TE, T, TR} =
+    zpk(T(d), undef_sampletime(TE))
 
-#Base.convert(::Type{<:TransferFunction{<:SisoZpk}}, s::TransferFunction) = zpk(s)
-#Base.convert(::Type{<:TransferFunction{<:SisoRational}}, s::TransferFunction) = tf(s)
-
+Base.convert(::Type{StateSpace{TE,T}}, d::Number) where {TE, T} =
+    convert(StateSpace{TE,T}, fill(d, (1,1)))
 #
+# Base.convert(::Type{TransferFunction{Continuous,<:SisoRational{T}}}, b::Number) where {T} = tf(T(b), Continuous())
+# Base.convert(::Type{TransferFunction{Continuous,<:SisoZpk{T, TR}}}, b::Number) where {T, TR} = zpk(T(b), Continuous())
+# Base.convert(::Type{StateSpace{Continuous,T, MT}}, b::Number) where {T, MT} = convert(StateSpace{Continuous,T, MT}, fill(b, (1,1)))
+
 # function Base.convert{T<:Real,S<:TransferFunction}(::Type{S}, b::VecOrMat{T})
 #     r = Matrix{S}(size(b,2),1)
 #     for j=1:size(b,2)
@@ -49,64 +56,66 @@ Base.convert(::Type{StateSpace{T, MT}}, b::Number) where {T, MT} = convert(State
 # end
 #
 
-function convert(::Type{TransferFunction{S}}, G::TransferFunction) where S
+function convert(::Type{TransferFunction{TE,S}}, G::TransferFunction) where {TE,S}
     Gnew_matrix = convert.(S, G.matrix)
-    return TransferFunction{eltype(Gnew_matrix)}(Gnew_matrix, G.Ts)
+    return TransferFunction{TE,eltype(Gnew_matrix)}(Gnew_matrix, TE(G.timeevol))
 end
 
-function convert(::Type{S}, sys::StateSpace) where {T, MT, S <:StateSpace{T,MT}}
-    if sys isa S
+function convert(::Type{StateSpace{TE,T}}, sys::AbstractStateSpace) where {TE, T}
+    if sys isa StateSpace{TE, T}
         return sys
     else
-        return StateSpace{T,MT}(convert(MT, sys.A), convert(MT, sys.B), convert(MT, sys.C), convert(MT, sys.D), sys.Ts)
+        return StateSpace{TE, T}(convert(Matrix{T}, sys.A), convert(Matrix{T}, sys.B), convert(Matrix{T}, sys.C), convert(Matrix{T}, sys.D), TE(sys.timeevol))
     end
 end
 
-Base.convert(::Type{HeteroStateSpace{AT,BT,CT,DT}}, s::StateSpace{T,MT}) where {T,MT,AT,BT,CT,DT} = HeteroStateSpace{promote_type(MT,AT),promote_type(MT,BT),promote_type(MT,CT),promote_type(MT,DT)}(s.A,s.B,s.C,s.D,s.Ts)
+# TODO Maybe add convert on matrices
+Base.convert(::Type{HeteroStateSpace{TE1,AT,BT,CT,DT}}, s::StateSpace{TE2,T}) where {TE1,TE2,T,AT,BT,CT,DT} =
+    HeteroStateSpace{TE1,AT,BT,CT,DT}(s.A,s.B,s.C,s.D,TE1(s.timeevol))
 
 Base.convert(::Type{HeteroStateSpace}, s::StateSpace) = HeteroStateSpace(s)
 
-function Base.convert(::Type{StateSpace}, G::TransferFunction{<:SisoTf{T0}}) where {T0<:Number}
+Base.convert(::Type{StateSpace}, s::HeteroStateSpace) = StateSpace(s.A, s.B, s.C, s.D, s.Ts)
+Base.convert(::Type{StateSpace}, s::HeteroStateSpace{Continuous}) = StateSpace(s.A, s.B, s.C, s.D)
+
+function Base.convert(::Type{StateSpace}, G::TransferFunction{TE,<:SisoTf{T0}}) where {TE,T0<:Number}
+
     T = Base.promote_op(/,T0,T0)
-    convert(StateSpace{T,Matrix{T}}, G)
+    convert(StateSpace{TE,T}, G)
 end
 
-
-function Base.convert(::Type{StateSpace{T,MT}}, G::TransferFunction) where {T<:Number, MT<:AbstractArray{T}}
+function Base.convert(::Type{StateSpace{TE,T}}, G::TransferFunction) where {TE,T<:Number}
     if !isproper(G)
         error("System is improper, a state-space representation is impossible")
     end
 
-    # TODO : These are added due to scoped for blocks, but is a hack. This
-    # could be much cleaner.
-    #T = Base.promote_op(/, T0, T0)
+    ny, nu = size(G)
 
-    Ac = Bc = Cc = Dc = A = B = C = D = Array{T}(undef, 0, 0)
-    for i=1:ninputs(G)
-        for j=1:noutputs(G)
-            a, b, c, d = siso_tf_to_ss(T, G.matrix[j, i])
-            if j > 1
-                # vcat
-                Ac = blockdiag(Ac, a)
-                Bc = vcat(Bc, b)
-                Cc = blockdiag(Cc, c)
-                Dc = vcat(Dc, d)
-            else
-                Ac, Bc, Cc, Dc = a, b, c, d
-            end
-        end
-        if i > 1
-            # hcat
-            A = blockdiag(A, Ac)
-            B = blockdiag(B, Bc)
-            C = hcat(C, Cc)
-            D = hcat(D, Dc)
-        else
-            A, B, C, D = Ac, Bc, Cc, Dc
+    # A, B, C, D matrices for each element of the transfer function matrix
+    abcd_vec = [siso_tf_to_ss(T, g) for g in G.matrix[:]]
+
+    # Number of states for each transfer function element realization
+    nvec = [size(abcd[1], 1) for abcd in abcd_vec]
+    ntot = sum(nvec)
+
+    A = zeros(T, (ntot, ntot))
+    B = zeros(T, (ntot, nu))
+    C = zeros(T, (ny, ntot))
+    D = zeros(T, (ny, nu))
+
+    inds = -1:0
+    for j=1:nu
+        for i=1:ny
+            k = (j-1)*ny + i
+
+            # states correpsonding to the transfer function element (i,j)
+            inds = (inds.stop+1):(inds.stop+nvec[k])
+
+            A[inds,inds], B[inds,j:j], C[i:i,inds], D[i:i,j:j] = abcd_vec[k]
         end
     end
     # A, B, C = balance_statespace(A, B, C)[1:3] NOTE: Use balance?
-    return StateSpace{T,MT}(A, B, C, D, G.Ts)
+    return StateSpace{TE,T}(A, B, C, D, TE(G.timeevol))
 end
 
 siso_tf_to_ss(T::Type, f::SisoTf) = siso_tf_to_ss(T, convert(SisoRational, f))
@@ -115,8 +124,8 @@ siso_tf_to_ss(T::Type, f::SisoTf) = siso_tf_to_ss(T, convert(SisoRational, f))
 function siso_tf_to_ss(T::Type, f::SisoRational)
 
     num0, den0 = numvec(f), denvec(f)
-    # Normalize the numerator and denominator,
-    # To allow realization of transfer functions that are proper, but now strictly proper
+    # Normalize the numerator and denominator to allow realization of transfer functions
+    # that are proper, but not strictly proper
     num = num0 / den0[1]
     den = den0 / den0[1]
 
@@ -125,26 +134,25 @@ function siso_tf_to_ss(T::Type, f::SisoRational)
     # Get numerator coefficient of the same order as the denominator
     bN = length(num) == N+1 ? num[1] : 0
 
-    if N==0 #|| num == zero(Poly{T})
-        A = fill(zero(T), 0, 0)
-        B = fill(zero(T), 0, 1)
-        C = fill(zero(T), 1, 0)
+    if N == 0 #|| num == zero(Polynomial{T})
+        A = zeros(T, (0, 0))
+        B = zeros(T, (0, 1))
+        C = zeros(T, (1, 0))
     else
-        A = diagm(1 => fill(one(T), N-1))
+        A = diagm(1 => ones(T, N-1))
         A[end, :] .= -reverse(den)[1:end-1]
 
-        B = fill(zero(T), N, 1)
+        B = zeros(T, (N, 1))
         B[end] = one(T)
 
-        C = fill(zero(T), 1, N)
+        C = zeros(T, (1, N))
         C[1:min(N, length(num))] = reverse(num)[1:min(N, length(num))]
         C[:] -= bN * reverse(den)[1:end-1] # Can index into polynomials at greater inddices than their length
     end
-    D = fill(bN, 1, 1)
+    D = fill(bN, (1, 1))
 
     return A, B, C, D
 end
-
 
 """
 `A, B, C, T = balance_statespace{S}(A::Matrix{S}, B::Matrix{S}, C::Matrix{S}, perm::Bool=false)`
@@ -157,15 +165,37 @@ If `perm=true`, the states in `A` are allowed to be reordered.
 
 This is not the same as finding a balanced realization with equal and diagonal observability and reachability gramians, see `balreal`
 """
-function balance_statespace(A::AbstractMatrix{P}, B::AbstractMatrix{P}, C::AbstractMatrix{P}, perm::Bool=false) where P <: BlasFloat
+function balance_statespace(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, perm::Bool=false)
+    try
+        return _balance_statespace(A,B,C, perm)
+    catch
+        @warn "Unable to balance state-space, returning original system"
+        return A,B,C,I
+    end
+ end
+
+# # First try to promote and hopefully get some types we can work with
+# function balance_statespace(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, perm::Bool=false)
+#     T = promote_type(eltype(A), eltype(B), eltype(C))
+#     A2, B2, C2, D2 = promote(A,B,C, fill(zero(T)/one(T),0,0)) # If Int, we get Float64
+#     balance_statespace(A2, B2, C2, perm)
+# end
+
+function balance_statespace(sys::StateSpace, perm::Bool=false)
+    A, B, C, T = balance_statespace(sys.A,sys.B,sys.C, perm)
+    return ss(A,B,C,sys.D,sys.timeevol), T
+end
+
+# Method that might fail for some exotic types, such as TrackedArrays
+function _balance_statespace(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, perm::Bool=false)
     nx = size(A, 1)
     nu = size(B, 2)
     ny = size(C, 1)
 
     # Compute the transformation matrix
     mag_A = abs.(A)
-    mag_B = max.(abs.(B), zero(real(P)))
-    mag_C = max.(abs.(C), zero(real(P)))
+    mag_B = max.(abs.(B), false) # false is 0 of lowest type
+    mag_C = max.(abs.(C), false)
     T = balance_transform(mag_A, mag_B, mag_C, perm)
 
     # Perform the transformation
@@ -176,32 +206,14 @@ function balance_statespace(A::AbstractMatrix{P}, B::AbstractMatrix{P}, C::Abstr
     return A, B, C, T
 end
 
-#TODO Throw a warning here at least?
-# Fallback mehod for systems with exotic matrices (i.e. TrackedArrays)
-balance_statespace(A::AbstractMatrix, B::AbstractMatrix, C::AbstractMatrix, perm::Bool=false) = A,B,C,I
-
-# First try to promote and see of we get BlasFloat, otherwise, fall beack on function above
-function balance_statespace(A::Matrix{<:Number}, B::Matrix{<:Number}, C::Matrix{<:Number}, D::Matrix{<:Number}, perm::Bool=false)
-    T = promote_type(eltype(A), eltype(B), eltype(C), eltype(D))
-    A2, B2, C2, D2 = promote(A,B,C,D, fill(zero(T)/one(T),0,0)) # If Int, we get Float64
-    balance_statespace(A2, B2, C2, perm)
-end
-
-function balance_statespace(sys::StateSpace, perm::Bool=false)
-    A, B, C, T = balance_statespace(sys.A,sys.B,sys.C, perm)
-    return ss(A,B,C,sys.D), T
-end
-
 """
-`T = balance_transform{R}(A::Matrix{R}, B::Matrix{R}, C::Matrix{R}, perm::Bool=false)`
+`T = balance_transform{R}(A::AbstractArray, B::AbstractArray, C::AbstractArray, perm::Bool=false)`
 
 `T = balance_transform(sys::StateSpace, perm::Bool=false) = balance_transform(A,B,C,perm)`
 
 Computes a balancing transformation `T` that attempts to scale the system so
 that the row and column norms of [T*A/T T*B; C/T 0] are approximately equal.
 If `perm=true`, the states in `A` are allowed to be reordered.
-
-No balancing will be done if `A, B C` are not BLAS compatible
 
 This is not the same as finding a balanced realization with equal and diagonal observability and reachability gramians, see `balreal`
 See also `balance_statespace`, `balance`
@@ -228,9 +240,9 @@ end
 balance_transform(sys::StateSpace, perm::Bool=false) = balance_transform(sys.A,sys.B,sys.C,perm)
 
 
-convert(::Type{TransferFunction}, sys::StateSpace) = convert(TransferFunction{SisoRational}, sys)
+convert(::Type{TransferFunction}, sys::AbstractStateSpace{TE}) where TE = convert(TransferFunction{TE,SisoRational}, sys)
 
-function convert(::Type{TransferFunction{SisoRational{T}}}, sys::StateSpace) where {T<:Number}
+function convert(::Type{TransferFunction{TE,SisoRational{T}}}, sys::AbstractStateSpace) where {TE,T<:Number}
     matrix = Matrix{SisoRational{T}}(undef, size(sys))
 
     A, B, C, D = ssdata(sys)
@@ -244,28 +256,26 @@ function convert(::Type{TransferFunction{SisoRational{T}}}, sys::StateSpace) whe
         num = charpoly(A-B[:,i:i]*C[j:j,:]) - charpolyA + D[j, i]*charpolyA
         matrix[j, i] = SisoRational{T}(num, charpolyA)
     end
-    TransferFunction{SisoRational{T}}(matrix, sys.Ts)
+    TransferFunction{TE,SisoRational{T}}(matrix, TE(sys.timeevol))
 end
-function convert(::Type{TransferFunction{SisoRational}}, sys::StateSpace{T0}) where {T0<:Number}
+function convert(::Type{TransferFunction{TE1,SisoRational}}, sys::StateSpace{TE2,T0}) where {TE1,TE2,T0<:Number}
     T = typeof(one(T0)/one(T0))
-    convert(TransferFunction{SisoRational{T}}, sys)
+    convert(TransferFunction{TE1,SisoRational{T}}, sys)
 end
 
 
-function convert(::Type{TransferFunction{SisoZpk{T,TR}}}, sys::StateSpace) where {T<:Number, TR <: Number}
+function convert(::Type{TransferFunction{TE,SisoZpk{T,TR}}}, sys::StateSpace) where {TE,T<:Number, TR <: Number}
     matrix = Matrix{SisoZpk{T,TR}}(undef, size(sys))
-
-    A, B, C, D = ssdata(sys)
 
     for i=1:noutputs(sys), j=1:ninputs(sys)
         z, p, k = siso_ss_to_zpk(sys, i, j)
         matrix[i, j] = SisoZpk{T,TR}(z, p, k)
     end
-    TransferFunction{SisoZpk{T,TR}}(matrix, sys.Ts)
+    TransferFunction{TE,SisoZpk{T,TR}}(matrix, TE(sys.timeevol))
 end
-function convert(::Type{TransferFunction{SisoZpk}}, sys::StateSpace{T0}) where {T0<:Number}
+function convert(::Type{TransferFunction{TE1,SisoZpk}}, sys::StateSpace{TE2,T0}) where {TE1,TE2,T0<:Number}
     T = typeof(one(T0)/one(T0))
-    convert(TransferFunction{SisoZpk{T,complex(T)}}, sys)
+    convert(TransferFunction{TE1,SisoZpk{T,complex(T)}}, sys)
 end
 
 """
@@ -285,12 +295,12 @@ end
 # TODO: Could perhaps be made more accurate. See: An accurate and efficient
 # algorithm for the computation of the # characteristic polynomial of a general square matrix.
 function charpoly(A::AbstractMatrix{<:Number})
-    Λ = eigvals(A)
+    Λ = eigvalsnosort(A)
 
     return prod(roots2poly_factors(Λ)) # Compute the polynomial factors directly?
 end
 function charpoly(A::AbstractMatrix{<:Real})
-    Λ = eigvals(A)
+    Λ = eigvalsnosort(A)
     return prod(roots2real_poly_factors(Λ))
 end
 
@@ -299,7 +309,7 @@ end
 #     λ = eigvals(A);
 #     T = promote_type(primitivetype(A), Float64)
 #     I = one(T)
-#     p = reduce(*,Poly([I]), Poly[Poly([I, -λᵢ]) for λᵢ in λ]);
+#     p = reduce(*,Polynomial([I]), Polynomial[Polynomial([I, -λᵢ]) for λᵢ in λ]);
 #     if maximum(imag.(p[:])./(I+abs.(real.(p[:])))) < sqrt(eps(T))
 #         for i = 1:length(p)
 #             p[i] = real(p[i])

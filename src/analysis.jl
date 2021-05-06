@@ -1,14 +1,15 @@
-"""`pole(sys)`
+"""
+    pole(sys)
 
 Compute the poles of system `sys`."""
-pole(sys::AbstractStateSpace) = eigvals(sys.A)
+pole(sys::AbstractStateSpace) = eigvalsnosort(sys.A)
 pole(sys::SisoTf) = error("pole is not implemented for type $(typeof(sys))")
 
 # Seems to have a lot of rounding problems if we run the full thing with sisorational,
 # converting to zpk before works better in the cases I have tested.
 pole(sys::TransferFunction) = pole(zpk(sys))
 
-function pole(sys::TransferFunction{SisoZpk{T,TR}}) where {T, TR}
+function pole(sys::TransferFunction{<:TimeEvolution,SisoZpk{T,TR}}) where {T, TR}
     # With right TR, this code works for any SisoTf
 
     # Calculate least common denominator of the minors,
@@ -34,7 +35,8 @@ function pole(sys::TransferFunction{SisoZpk{T,TR}}) where {T, TR}
     return lcmpoles
 end
 
-"""`minorpoles(sys)`
+"""
+    minorpoles(sys)
 
 Compute the poles of all minors of the system."""
 # TODO: Improve implementation, should be more efficient ways.
@@ -66,7 +68,8 @@ function minorpoles(sys::Matrix{SisoZpk{T, TR}}) where {T, TR}
     return minors
 end
 
-"""`det(sys)`
+"""
+    det(sys)
 
 Compute the determinant of the Matrix `sys` of SisoTf systems, returns a SisoTf system."""
 # TODO: improve this implementation, should be more efficient ones
@@ -85,7 +88,8 @@ function det(sys::Matrix{S}) where {S<:SisoZpk}
     return tot
 end
 
-"""`dcgain(sys)`
+"""
+    dcgain(sys)
 
 Compute the dcgain of system `sys`.
 
@@ -94,7 +98,8 @@ function dcgain(sys::LTISystem)
     return iscontinuous(sys) ? evalfr(sys, 0) : evalfr(sys, 1)
 end
 
-"""`markovparam(sys, n)`
+"""
+    markovparam(sys, n)
 
 Compute the `n`th markov parameter of state-space system `sys`. This is defined
 as the following:
@@ -107,7 +112,8 @@ function markovparam(sys::AbstractStateSpace, n::Integer)
     return n == 0 ? sys.D : sys.C * sys.A^(n-1) * sys.B
 end
 
-"""`z, p, k = zpkdata(sys)`
+"""
+    z, p, k = zpkdata(sys)
 
 Compute the zeros, poles, and gains of system `sys`.
 
@@ -118,7 +124,7 @@ Compute the zeros, poles, and gains of system `sys`.
 
 `k` : Matrix{Float64}, (ny x nu)"""
 function zpkdata(sys::LTISystem)
-    G = convert(TransferFunction{SisoZpk}, sys)
+    G = convert(TransferFunction{typeof(timeevol(sys)),SisoZpk}, sys)
 
     zs = map(x -> x.z, G.matrix)
     ps = map(x -> x.p, G.matrix)
@@ -127,25 +133,26 @@ function zpkdata(sys::LTISystem)
     return zs, ps, ks
 end
 
-"""`Wn, zeta, ps = damp(sys)`
+"""
+    Wn, zeta, ps = damp(sys)
 
 Compute the natural frequencies, `Wn`, and damping ratios, `zeta`, of the
 poles, `ps`, of `sys`"""
 function damp(sys::LTISystem)
     ps = pole(sys)
-    if !iscontinuous(sys)
-        Ts = sys.Ts == -1 ? 1 : sys.Ts
-        ps = log(ps)/Ts
+    if isdiscrete(sys)
+        ps = log.(ps)/sys.Ts
     end
     Wn = abs.(ps)
-    order = sortperm(Wn)
+    order = sortperm(Wn; by=z->(abs(z), real(z), imag(z)))
     Wn = Wn[order]
     ps = ps[order]
     ζ = -cos.(angle.(ps))
     return Wn, ζ, ps
 end
 
-"""`dampreport(sys)`
+"""
+    dampreport(sys)
 
 Display a report of the poles, damping ratio, natural frequency, and time
 constant of the system `sys`"""
@@ -173,7 +180,8 @@ end
 dampreport(sys::LTISystem) = dampreport(stdout, sys)
 
 
-"""`tzero(sys)`
+"""
+    tzero(sys)
 
 Compute the invariant zeros of the system `sys`. If `sys` is a minimal
 realization, these are also the transmission zeros."""
@@ -224,7 +232,7 @@ function tzero(A::AbstractMatrix{T}, B::AbstractMatrix{T}, C::AbstractMatrix{T},
         m = size(D_rc, 2)
         Af = ([A_rc B_rc] * W)[1:nf, 1:nf]
         Bf = ([Matrix{T}(I, nf, nf) zeros(nf, m)] * W)[1:nf, 1:nf]
-        zs = eigvals(Af, Bf)
+        zs = eigvalsnosort(Af, Bf)
         _fix_conjugate_pairs!(zs) # Generalized eigvals does not return exact conj. pairs
     else
         zs = complex(T)[]
@@ -433,7 +441,8 @@ function _findCrossings(w, n, res)
     wcross, tcross
 end
 
-"""`dₘ = delaymargin(G::LTISystem)`
+"""
+    dₘ = delaymargin(G::LTISystem)
 
 Only supports SISO systems"""
 function delaymargin(G::LTISystem)
@@ -446,62 +455,48 @@ function delaymargin(G::LTISystem)
     ϕₘ   *= π/180
     ωϕₘ   = m[3][i]
     dₘ    = ϕₘ/ωϕₘ
-    if G.Ts > 0
+    if isdiscrete(G)
         dₘ /= G.Ts # Give delay margin in number of sample times, as matlab does
     end
     dₘ
 end
 
-"""`S,D,N,T = gangoffour(P,C)`, `gangoffour(P::AbstractVector,C::AbstractVector)`
+function robust_minreal(G, args...; kwargs...)
+    try 
+        return minreal(G, args...; kwargs...)
+    catch
+        return G
+    end
+end
 
-Given a transfer function describing the Plant `P` and a transferfunction describing the controller `C`, computes the four transfer functions in the Gang-of-Four.
+"""
+    S,D,N,T = gangoffour(P,C; minimal=true)
+    gangoffour(P::AbstractVector,C::AbstractVector; minimal=true)
+    
+Given a transfer function describing the Plant `P` and a transfer function describing the controller `C`, computes the four transfer functions in the Gang-of-Four.
 
-`S = 1/(1+PC)` Sensitivity function
+- `minimal` determines whether or not to call `minreal` on the computed systems.
+- `S = 1/(1+PC)` Sensitivity function
+- `D = P/(1+PC)`
+- `N = C/(1+PC)`
+- `T = PC/(1+PC)` Complementary sensitivity function
 
-`D = P/(1+PC)`
-
-`N = C/(1+PC)`
-
-`T = PC/(1+PC)` Complementary sensitivity function
-
-Only supports SISO systems"""
-function gangoffour(P::TransferFunction,C::TransferFunction)
+Only supports SISO systems
+"""
+function gangoffour(P::LTISystem,C::LTISystem; minimal=true)
     if P.nu + P.ny + C.nu + C.ny > 4
         error("gangoffour only supports SISO systems")
     end
-    S = minreal(1/(1+P*C))
-    D = minreal(P*S)
-    N = minreal(C*S)
-    T = minreal(P*N)
+    minfun = minimal ? robust_minreal : identity
+    S = (1/(1+P*C)) |> minfun
+    D = (P*S)       |> minfun
+    N = (C*S)       |> minfun
+    T = (P*N)       |> minfun
     return S, D, N, T
 end
 
-
-function gangoffour(P::AbstractVector, C::AbstractVector)
-    Base.depwarn("Deprecrated use of gangoffour(::Vector, ::Vector), use `broadcast` and `zip` instead", :gangoffour)
-    if P[1].nu + P[1].ny + C[1].nu + C[1].ny > 4
-        error("gangoffour only supports SISO systems")
-    end
-    length(P) == length(C) || error("P has to be the same length as C")
-    n = length(P)
-    S = [minreal(1/(1+P[i]*C[i])) for i in 1:n]
-    D = [minreal(P[i]*S[i]) for i in 1:n]
-    N = [minreal(C[i]*S[i]) for i in 1:n]
-    T = [minreal(P[i]*N[i]) for i in 1:n]
-    return S, D, N, T
-end
-
-function gangoffour(P::TransferFunction, C::AbstractVector)
-    Base.depwarn("Deprecrated use of gangoffour(::TransferFunction, ::Vector), use `broadcast` and `zip` instead", :gangoffour)
-    gangoffour(fill(P,length(C)), C)
-end
-
-function gangoffour(P::AbstractVector, C::TransferFunction)
-    Base.depwarn("Deprecrated use of gangoffour(::Vector, ::TransferFunction), use `broadcast` and `zip` instead", :gangoffour)
-    gangoffour(P, fill(C,length(P)))
-end
-
-"""`S, D, N, T, RY, RU, RE = gangofseven(P,C,F)`
+"""
+    S, D, N, T, RY, RU, RE = gangofseven(P,C,F)
 
 Given transfer functions describing the Plant `P`, the controller `C` and a feed forward block `F`,
 computes the four transfer functions in the Gang-of-Four and the transferfunctions corresponding to the feed forward.

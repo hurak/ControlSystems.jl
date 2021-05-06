@@ -4,7 +4,8 @@ using SymPy
 
 # Some basic demonstations of working with symbolic LTI systems
 # Functionality is rather limited, and for complicated expressions the
-# printing is awful. Anyway, let's get started...
+# printing is awful.
+# For additional functionality, see https://github.com/JuliaControl/SymbolicControlSystems.jl
 
 
 # Need to modify some functions, to work with the Sym type
@@ -12,7 +13,7 @@ using SymPy
 Base.complex(::Type{SymPy.Sym}) = Sym
 Base.eigvals(a::Matrix{Sym}) = Vector{Sym}(collect(keys(call_matrix_meth(a, :eigenvals))))
 
-function Polynomials.roots(p::Polynomials.Poly{SymPy.Sym})
+function Polynomials.roots(p::Polynomials.Polynomial{SymPy.Sym})
     x = Sym("x")
     return SymPy.solve(p(x), x)
 end

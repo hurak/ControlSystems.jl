@@ -1,7 +1,10 @@
 # ControlSystems.jl
 
-[![Build Status](https://travis-ci.org/JuliaControl/ControlSystems.jl.svg?branch=master)](https://travis-ci.org/JuliaControl/ControlSystems.jl)
-[![Gitter](https://badges.gitter.im/JuliaControl/ControlSystems.jl.svg)](https://gitter.im/JuliaControl/ControlSystems.jl?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![Build Status](https://github.com/JuliaControl/ControlSystems.jl/workflows/CI/badge.svg)](https://github.com/JuliaControl/ControlSystems.jl/actions?query=workflow%3ACI)
+[![Documentation Status](https://github.com/JuliaControl/ControlSystems.jl/workflows/Docs/badge.svg)](https://github.com/JuliaControl/ControlSystems.jl/actions?query=workflow%3ADocs)
+
+[![PkgEval](https://juliaci.github.io/NanosoldierReports/pkgeval_badges/C/ControlSystems.svg)](https://juliaci.github.io/NanosoldierReports/pkgeval_badges/report.html)
+[![codecov](https://codecov.io/gh/JuliaControl/ControlSystems.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaControl/ControlSystems.jl)
 
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://juliacontrol.github.io/ControlSystems.jl/stable)
 [![](https://img.shields.io/badge/docs-latest-blue.svg)](https://juliacontrol.github.io/ControlSystems.jl/latest)
@@ -13,10 +16,30 @@ A control systems design toolbox for Julia.
 To install, in the Julia REPL:
 
 ```julia
-Pkg.add("ControlSystems")
+using Pkg; Pkg.add("ControlSystems")
 ```
 
 ## News
+
+### 2021-01
+- *Breaking*: Support for julia versions older than 1.3 is dropped
+- *Breaking*: `c2d(::StateSpace)` now returns only the system, not the `x0map`. See `c2d_x0map` for the old functionality.
+- System order can be specified in `baltrunc`.
+- New discretization methods in `c2d`. We now support `:zoh,:foh,:fwdeuler,:tustin`
+- Symbolic computation utilities in [SymbolicControlSystems.jl](https://github.com/JuliaControl/SymbolicControlSystems.jl)
+
+More details under [releases](https://github.com/JuliaControl/ControlSystems.jl/releases).
+
+### 2020-10
+- `lsimplot, stepplot, impulseplot` now have the same signatures as the corresponding non-plotting function.
+- New function `d2c` for conversion from discrete to continuous.
+
+### 2020-09-24
+Release v0.7 introduces a new `TimeEvolution` type to handle `Discrete/Continuous` systems. See the [release notes](https://github.com/JuliaControl/ControlSystems.jl/releases/tag/v0.7.0).
+
+### 2019-11-03
+- Poles and zeros are "not sorted" as in Julia versions < 1.2, even on newer versions of Julia. This should imply that complex conjugates are kept together.
+
 ### 2019-05-28
 #### Delay systems
 - We now support systems with time delays. Example:
@@ -32,34 +55,6 @@ nyquistplot(sys)
 - [Robust PID optimization](https://github.com/baggepinnen/MonteCarloMeasurements.jl/blob/master/examples/robust_controller_opt.jl)
 ### 2019-05-22
 New state-space type `HeteroStateSpace` that accepts matrices of heterogeneous types: [example using `StaticArrays`](https://juliacontrol.github.io/ControlSystems.jl/latest/man/creating_systems/#Creating-State-Space-Systems-1).
-### 2019-01-31
-System identification using [ControlSystemIdentification.jl](https://github.com/baggepinnen/ControlSystemIdentification.jl) is now available. The [readme](https://github.com/baggepinnen/ControlSystemIdentification.jl) together with a series of notebooks serve as documentation.
-- [State-space identification](https://github.com/JuliaControl/ControlExamples.jl/blob/master/identification_statespace.ipynb)
-- [ARX/PLR](https://github.com/JuliaControl/ControlExamples.jl/blob/master/identification_arx.ipynb)
-- [Transfer-function estimation using spectral methods](https://github.com/JuliaControl/ControlExamples.jl/blob/master/identification_spectral.ipynb)
-- [Impulse-response estimation](https://github.com/JuliaControl/ControlExamples.jl/blob/master/identification_impulse_response.ipynb)
-
-### 2018-09-30
-Support for Julia 0.7/1.0 added.
-
-### 2018-09-01
-- LTISystem types are now more generic and can hold matrices/vectors of arbitrary type. Examples (partly pseudo-code):
-```julia
-ss(1)
-ss(1.)
-ss(1im)
-ss(ForwardDiff.Dual(1.))
-ss(GPUArray([1]))
-ss(SparseMatrix([1]))
-```
-Similar for `tf,zpk` etc.
-- Continuous time systems are simulated with continuous time solvers from `OrdinaryDiffEq.jl`
-- Freqresp now returns frequencies in the first dimension.
-- Breaking: `lsim(sys, u::Function)` syntax has changed from `u(t,x)` to `u(x,t)` to be consistent with `OrdinaryDiffEq`
-- Breaking: `feedback(P,C)` no longer returns `feedback(P*C)`. The behavior is changed to `feedback(P1, P2) = P1/(1+P1*P2)`.
-- Type `Simulator` provides lower level interface to continuous time simulation.
-- Example [autodiff.jl](https://github.com/JuliaControl/ControlSystems.jl/tree/master/example/autodiff.jl) provides an illustration of how the new generic types can be used for automatic differentiation of a cost function through the continuous-time solver, which allows for optimization of the cost function w.r.t. PID parameters.
-
 
 ## Documentation
 
@@ -69,9 +64,9 @@ A documentation website is available at [http://juliacontrol.github.io/ControlSy
 
 Some of the available commands are:
 ##### Constructing systems
-ss, tf, zpk, ss2tf
+ss, tf, zpk
 ##### Analysis
-pole, tzero, norm, norminf, ctrb, obsv, gangoffour, margin, markovparam, damp, dampreport, zpkdata, dcgain, covar, gram, sigma, sisomargin
+pole, tzero, norm, hinfnorm, linfnorm, ctrb, obsv, gangoffour, margin, markovparam, damp, dampreport, zpkdata, dcgain, covar, gram, sigma, sisomargin
 ##### Synthesis
 care, dare, dlyap, lqr, dlqr, place, leadlink, laglink, leadlinkat, rstd, rstc, dab, balreal, baltrunc
 ###### PID design
@@ -122,10 +117,10 @@ CLs = TransferFunction[kp*P/(1 + kp*P) for kp = [1, 5, 15]];
 
 # Plot the step response of the controllers
 # Any keyword arguments supported in Plots.jl can be supplied
-stepplot(CLs, label=["Kp = 1", "Kp = 5", "Kp = 15"])
+stepplot(CLs, label=["Kp = 1" "Kp = 5" "Kp = 15"])
 ```
 
 ![StepResponse](/example/step_response.png)
 
 ### Additional examples
-See the examples folder
+See the examples folder and [ControlExamples.jl](https://github.com/JuliaControl/ControlExamples.jl/)

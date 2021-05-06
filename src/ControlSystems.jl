@@ -6,11 +6,13 @@ export  LTISystem,
         HeteroStateSpace,
         TransferFunction,
         DelayLtiSystem,
+        Continuous,
+        Discrete,
         ss,
         tf,
         zpk,
-        ss2tf,
         LQG,
+        isproper,
         # Linear Algebra
         balance,
         care,
@@ -24,11 +26,13 @@ export  LTISystem,
         lqgi,
         covar,
         norm,
-        norminf,
+        hinfnorm,
+        linfnorm,
         gram,
         ctrb,
         obsv,
         place,
+        luenberger,
         # Model Simplification
         reduce_sys,
         sminreal,
@@ -36,6 +40,7 @@ export  LTISystem,
         balreal,
         baltrunc,
         similarity_transform,
+        prescale,
         innovation_form,
         # Stability Analysis
         isstable,
@@ -55,8 +60,12 @@ export  LTISystem,
         parallel,
         feedback,
         feedback2dof,
+        starprod,
+        lft,
         # Discrete
         c2d,
+        c2d_x0map,
+        d2c,
         # Time Response
         step,
         impulse,
@@ -64,33 +73,51 @@ export  LTISystem,
         solve,
         Simulator,
         # Frequency Response
-        freqresp,
+        freqresp, freqrespv,
         evalfr,
-        bode,
-        nyquist,
-        sigma,
+        bode, bodev,
+        nyquist, nyquistv,
+        sigma, sigmav,
         # delay systems
         delay,
+        pade,
+        # demo systems
+        ssrand,
+        DemoSystems, # A module containing some example systems
         # utilities
         num,    #Deprecated
         den,    #Deprecated
         numvec,
         denvec,
         numpoly,
-        denpoly
+        denpoly,
+        iscontinuous,
+        isdiscrete,
+        ssdata
 
 
 # QUESTION: are these used? LaTeXStrings, Requires, IterTools
-using Polynomials, RecipesBase, LaTeXStrings, LinearAlgebra
-using OrdinaryDiffEq, DelayDiffEq
+using RecipesBase, LaTeXStrings, LinearAlgebra
+import Polynomials
+import Polynomials: Polynomial, coeffs
+using OrdinaryDiffEq
 import Base: +, -, *, /, (==), (!=), isapprox, convert, promote_op
-import Base: getproperty
+import Base: getproperty, getindex
+import Base: exp # for exp(-s)
 import LinearAlgebra: BlasFloat
 export lyap # Make sure LinearAlgebra.lyap is available
 import Printf, Colors
 import DSP: conv
+import DiffEqCallbacks: SavingCallback, SavedValues
+using DelayDiffEq
+using MacroTools
 
 abstract type AbstractSystem end
+
+include("types/TimeEvolution.jl")
+## Added interface:
+#   timeevol(Lti) -> TimeEvolution (not exported)
+
 
 include("types/Lti.jl")
 
@@ -98,7 +125,6 @@ include("types/SisoTf.jl")
 
 # Transfer functions and tranfer function elemements
 include("types/TransferFunction.jl")
-include("types/SisoTfTypes/polyprint.jl")
 include("types/SisoTfTypes/SisoZpk.jl")
 include("types/SisoTfTypes/SisoRational.jl")
 include("types/SisoTfTypes/promotion.jl")
@@ -106,6 +132,7 @@ include("types/SisoTfTypes/conversion.jl")
 
 include("types/StateSpace.jl")
 
+# TODO Sample time
 include("types/PartionedStateSpace.jl")
 include("types/DelayLtiSystem.jl")
 
@@ -135,12 +162,22 @@ include("synthesis.jl")
 include("simulators.jl")
 include("pid_design.jl")
 
+include("demo_systems.jl")
+
 include("delay_systems.jl")
 
 include("plotting.jl")
 
 @deprecate num numvec
 @deprecate den denvec
+@deprecate norminf hinfnorm
+@deprecate diagonalize(s::AbstractStateSpace, digits) diagonalize(s::AbstractStateSpace)
+# There are some deprecations in pid_control.jl for laglink/leadlink/leadlinkat
+
+function covar(D::Union{AbstractMatrix,UniformScaling}, R)
+    @warn "This call is deprecated due to ambiguity, use covar(ss(D), R) or covar(ss(D, Ts), R) instead"
+    D*R*D'
+end
 
 # The path has to be evaluated upon initial import
 const __CONTROLSYSTEMS_SOURCE_DIR__ = dirname(Base.source_path())
