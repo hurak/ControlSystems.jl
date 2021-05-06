@@ -68,11 +68,7 @@ function getPhaseTicks(x, minmax)
         ## this helps identifying at the edges.
         major = [(min-0.5);min:max;(max+0.5)].*90
     end
-    if Plots.backend() != Plots.GRBackend()
-        majorText = [latexstring("\$ $(round(Int64,i))\$") for i = major]
-    else
-        majorText = ["$(round(Int64,i))" for i = major]
-    end
+    majorText = [latexstring("\$ $(round(Int64,i))\$") for i = major]
 
     return major, majorText
 
@@ -165,7 +161,7 @@ Plot step response of  `sys` until final time `tfinal` or at time points in the 
 If not defined, suitable values are chosen based on `sys`.
 See also [`step`](@ref)
 
-`kwargs` is sent as argument to Plots.plot.
+`kwargs` is sent as argument to RecipesBase.plot.
 """
 stepplot
 
@@ -176,7 +172,7 @@ Plot impulse response of `sys` until final time `tfinal` or at time points in th
 If not defined, suitable values are chosen based on `sys`.
 See also [`impulse`](@ref)
 
-`kwargs` is sent as argument to Plots.plot.
+`kwargs` is sent as argument to RecipesBase.plot.
 """
 impulseplot
 
@@ -255,7 +251,7 @@ optionally provided. To change the Magnitude scale see `setPlotScale(str)`
                                             
 If `hz=true`, the plot x-axis will be displayed in Hertz, the input frequency vector is still treated as rad/s.
 
-`kwargs` is sent as argument to Plots.plot.
+`kwargs` is sent as argument to RecipesBase.plot.
 """
 bodeplot
 
@@ -451,7 +447,7 @@ fontsize = 10
 `val` ∈ [0,1] determines the brightness of the gain lines
 
 Additional keyword arguments are sent to the function plotting the systems and can be
-used to specify colors, line styles etc. using regular Plots.jl syntax
+used to specify colors, line styles etc. using regular RecipesBase.jl syntax
 
 This function is based on code subject to the two-clause BSD licence
 Copyright 2011 Will Robertson
@@ -517,7 +513,7 @@ nicholsplot
                     offset  = (l+1)
                     TextX   = Niϕ(k,210) .+offset
                     TextY   = Ni_Ga(k,210)
-                    annotations := (TextX,TextY,Plots.text("$(string(k)) dB",fontsize))
+                    annotations := (TextX,TextY,RecipesBase.text("$(string(k)) dB",fontsize))
                 end
                 ϕVals .+ 360(l+1),GVals
             end
@@ -562,7 +558,7 @@ nicholsplot
             end
         end
         TextX
-        annotations := (TextX,TextY,Plots.text("$(string(k))°",fontsize))
+        annotations := (TextX,TextY,RecipesBase.text("$(string(k))°",fontsize))
 
         title --> "Nichols chart"
         grid --> false
@@ -601,7 +597,7 @@ end
 Plot the singular values of the frequency response of the `LTISystem`(s). A
 frequency vector `w` can be optionally provided.
 
-`kwargs` is sent as argument to Plots.plot.
+`kwargs` is sent as argument to RecipesBase.plot.
 """
 sigmaplot
 @recipe function sigmaplot(p::Sigmaplot)
@@ -634,7 +630,7 @@ end
 Plot all the amplitude and phase margins of the system(s) `sys`.
 A frequency vector `w` can be optionally provided.
 
-`kwargs` is sent as argument to Plots.plot.
+`kwargs` is sent as argument to RecipesBase.plot.
 """
 function marginplot(systems::Union{AbstractVector{T},T}, args...; kwargs...) where T<:LTISystem
     systems, w = _processfreqplot(Val{:bode}(), systems, args...)
@@ -767,7 +763,7 @@ pzmap!(sys::LTISystem; kwargs...) = pzmap!([sys]; kwargs...)
     fig = gangoffourplot(P::LTISystem, C::LTISystem; minimal=true, plotphase=false, kwargs...)
     gangoffourplot(P::Union{Vector, LTISystem}, C::Vector; minimal=true, plotphase=false, kwargs...)
 
-Gang-of-Four plot. `kwargs` is sent as argument to Plots.plot.
+Gang-of-Four plot. `kwargs` is sent as argument to RecipesBase.plot.
 """
 function gangoffourplot(P::Union{Vector, LTISystem}, C::Vector, args...; minimal=true, plotphase=false, kwargs...)
     # Array of (S,D,N,T)

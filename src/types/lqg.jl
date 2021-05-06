@@ -249,7 +249,7 @@ Base.:(==)(G1::LQG, G2::LQG) =
     G1.K == G2.K && G1.L == G2.L && G1.P == G2.P && G1.sysc == G2.sysc
 
 
-plot(G::LQG) = gangoffourplot(G)
+RecipesBase.plot(G::LQG) = gangoffourplot(G)
 
 function gangoffour(G::LQG)
     G.S, G.PS, G.CS, G.T
