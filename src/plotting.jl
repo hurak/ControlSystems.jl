@@ -772,7 +772,7 @@ function gangoffourplot(P::Union{Vector, LTISystem}, C::Vector, args...; minimal
     end
     sys = gangoffour.(P,C; minimal=minimal)
     fig = bodeplot([[sys[i][1] sys[i][2]; sys[i][3] sys[i][4]] for i = 1:length(C)], args..., plotphase=plotphase; kwargs...)
-    hline!([1 1 1 1], l=(:black, :dash), primary=false)
+    RecipesBase.plot!(fig, [x-> _PlotScale == "dB" ? 0 : 1 for _ in 1:4], l=(:black, :dash), primary=false)
     titles = fill("", 1, plotphase ? 8 : 4)
     # Empty titles on phase
     titleIdx = plotphase ? [1,2,5,6] : [1,2,3,4]
