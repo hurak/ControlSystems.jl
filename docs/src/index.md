@@ -4,6 +4,8 @@
 CurrentModule = ControlSystems
 ```
 
+Documentation for [ControlSystems.jl](https://github.com/JuliaControl/ControlSystems.jl) Julia package supporting control system analysis and design computations.
+
 ## Guide
 
 ```@contents

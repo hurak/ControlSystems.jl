@@ -9,31 +9,72 @@ end
 ```
 
 
-# LQR design
+# Discrete-time LQR design
+
+Consider a discrete-time system modelled by a linear time-invariant (LTI) state equations
+```math
+\boldsymbol x(k+1) = \boldsymbol  A \boldsymbol x(k) + \boldsymbol B \boldsymbol u(k),
+```
+and design a state-feedback controller, that is, a matrix ``\boldsymbol K`` of proportional gains determining the control through  
+```math
+\boldsymbol u(k) = \boldsymbol K \boldsymbol x(k)
+```
+such that the quadratic cost function
+```math
+\sum_{k=1}^\infty \boldsymbol x^T(k)\boldsymbol Q \boldsymbol x(k) + \boldsymbol u^T(k)\boldsymbol R \boldsymbol u(k)
+```
+is minimized for some chosen *weighting* matrices ``\boldsymbol Q = \boldsymbol Q^T \geq 0`` and ``\boldsymbol R = \boldsymbol R^T > 0``. These matrices serve as the "tuning knobs" for the control design.
+
+First, we load all the packages we need
 ```jldoctest; output = false
 using LinearAlgebra # For identity matrix I
-Ts      = 0.1
-A       = [1 Ts; 0 1]
-B       = [0 1]' # To handle bug TODO
-C       = [1 0]
-sys     = ss(A,B,C,0, Ts)
-Q       = I
-R       = I
-L       = dlqr(A,B,Q,R) # lqr(sys,Q,R) can also be used
+```
 
+Now we build the state-space model (just the state equations in the vector form)
+```jldoctest; output = false
+Tₛ = 0.2
+A = [1 Tₛ; 0 1]
+B = [0; 1]
+C = [1 0]
+sys = ss(A,B,C,0,Tₛ)
+```
+The model actually represents a time-discretized (with the period `Tₛ`) double integrator corresponding to the second Newton's law.
+
+It is time for a control designer to choose some weighting matrices `Q` and `R`
+```jldoctest; output = false
+Q = I
+R = I
+```
+
+Now that all the data for the optimal control design is ready, we call the `dlqr` solver to get the matrix `K` of gains for the state-feedback controller
+```jldoctest; output = false
+K = dlqr(A,B,Q,R)
+```
+Note that alternatively we can use `lqr(sys,Q,R)` here because the `sys` system carries the information that it is a discrete-time system, hence a discrete-time version of the solver needs to be called.
+
+We can now implement the controller in Julia so that we can simulate responses of the closed-loop systems. We will implement the controller as a function with the state and time as its input arguments
+```jldoctest; output = false
 u(x,t)  = -L*x .+ 1.5(t>=2.5)# Form control law (u is a function of t and x), a constant input disturbance is affecting the system from t≧2.5
-t       =0:Ts:5
-x0      = [1,0]
+```
+
+Now we can simulate a response of our closed-loop system to nonzero initial state and some external disturbance acting at the input
+```jldoctest; output = false
+t = 0:Ts:5
+x0 = [1,0]
 y, t, x, uout = lsim(sys,u,t,x0=x0)
 Plots.plot(t,x, lab=["Position" "Velocity"], xlabel="Time [s]")
 
 save_docs_plot("lqrplot.svg"); # hide
 
 # output
-
 ```
 
 ![](../../plots/lqrplot.svg)
+
+# Continuous-time LQR design
+
+xxx
+
 
 # PID design functions
 By plotting the gang of four under unit feedback for the process
