@@ -50,4 +50,4 @@ makedocs(modules=[ControlSystems],
     ]
 )
 
-deploydocs(repo = "github.com/hurak/ControlSystems.jl.git")
+deploydocs(repo = "github.com/hurak/ControlSystems.jl")
